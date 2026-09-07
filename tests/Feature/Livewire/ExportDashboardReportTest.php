@@ -295,3 +295,49 @@ it('redirects back when no log sessions exist for selected period', function () 
         ]))
         ->assertRedirect();
 });
+
+// ─── getDateRange – correct year for non-current months ──────────────────────
+
+it('resolves a month to the correct calendar year when log sessions exist', function () {
+    $controller = new ExportDashboardReport();
+    $reflector  = new ReflectionMethod($controller, 'getDateRange');
+    $reflector->setAccessible(true);
+
+    // Create a session in August 2026 for school year 2025-2026
+    LogSession::factory()->create([
+        'date'        => '2026-08-15',
+        'school_year' => '2025-2026',
+    ]);
+
+    $range = $reflector->invoke($controller, 'monthly', 'August', '2025-2026');
+    expect($range['start'])->toBe('2026-08-01');
+    expect($range['end'])->toBe('2026-08-31');
+});
+
+it('resolves month using school year fallback when no log sessions exist', function () {
+    $controller = new ExportDashboardReport();
+    $reflector  = new ReflectionMethod($controller, 'getDateRange');
+    $reflector->setAccessible(true);
+
+    // January in school year 2025-2026 falls back to 2026 (end year)
+    $range = $reflector->invoke($controller, 'monthly', 'January', '2025-2026');
+    expect($range['start'])->toBe('2026-01-01');
+    expect($range['end'])->toBe('2026-01-31');
+
+    // August in school year 2025-2026 falls back to 2025 (start year)
+    $range = $reflector->invoke($controller, 'monthly', 'August', '2025-2026');
+    expect($range['start'])->toBe('2025-08-01');
+    expect($range['end'])->toBe('2025-08-31');
+
+    // June (boundary) falls back to start year
+    $range = $reflector->invoke($controller, 'monthly', 'June', '2025-2026');
+    expect($range['start'])->toBe('2025-06-01');
+    expect($range['end'])->toBe('2025-06-30');
+
+    // May (boundary) falls back to end year
+    $range = $reflector->invoke($controller, 'monthly', 'May', '2025-2026');
+    expect($range['start'])->toBe('2026-05-01');
+    expect($range['end'])->toBe('2026-05-31');
+});
+
+

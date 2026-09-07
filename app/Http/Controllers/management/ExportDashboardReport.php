@@ -145,26 +145,24 @@ class ExportDashboardReport extends Controller
     private function getDateRange($reportType, $month, $schoolYear)
     {
         if ($reportType === 'monthly') {
-            // Get month number
             $monthNumber = $this->getMonthNumber($month);
             if (!$monthNumber) {
                 throw new Exception('Invalid month provided.');
             }
 
-            // Find the actual date range for this month in the school year
+            // Find existing session for this school year and month to get the actual calendar year
             $logSession = LogSession::where('school_year', $schoolYear)
                 ->whereMonth('date', $monthNumber)
-                ->orderBy('date')
+                ->orderBy('date', 'desc')
                 ->first();
 
-            if (!$logSession) {
-                // Educated guess based on school year
+            if ($logSession) {
+                $year = Carbon::parse($logSession->date)->year;
+            } else {
                 $yearParts = explode('-', $schoolYear);
                 $startYear = (int) $yearParts[0];
                 $endYear   = (int) ($yearParts[1] ?? ($startYear + 1));
                 $year      = ($monthNumber >= 6) ? $startYear : $endYear;
-            } else {
-                $year = Carbon::parse($logSession->date)->year;
             }
 
             $start = Carbon::create($year, $monthNumber, 1, 0, 0, 0, 'Asia/Manila')->startOfMonth();
@@ -350,11 +348,11 @@ class ExportDashboardReport extends Controller
         };
 
         $allCourses = \App\Models\Course::pluck('name')->toArray();
-        $allStrands = \App\Models\Strand::pluck('name')->toArray();
+        $allStrands = Strand::pluck('name')->toArray();
         $allLevels  = \App\Models\Faculty::whereNotNull('instructional_level')->pluck('instructional_level')->unique()->toArray();
         
         $courseCodes = \App\Models\Course::pluck('code', 'name')->toArray();
-        $strandCodes = \App\Models\Strand::pluck('code', 'name')->toArray();
+        $strandCodes = Strand::pluck('code', 'name')->toArray();
 
         $courseMinMax = $getMinMax($courseDistribution, $allCourses, $courseCodes);
         $strandMinMax = $getMinMax($strandDistribution, $allStrands, $strandCodes);
